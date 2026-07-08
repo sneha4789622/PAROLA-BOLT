@@ -3,14 +3,17 @@ import { Bell, Search, Moon, Sun } from 'lucide-react';
 import { useTheme } from '../context/ThemeContext';
 import { useAuth } from '../context/AuthContext';
 
-const Topbar = ({ title }) => {
+const Topbar = ({ title, leftContent }) => {
   const navigate = useNavigate();
   const { theme, toggleTheme } = useTheme();
   const { user } = useAuth();
 
   return (
     <header className="sticky top-0 z-30 flex items-center justify-between gap-3 border-b border-bolt-100 dark:border-ink-700 bg-cream/90 dark:bg-ink-950/90 backdrop-blur px-4 py-3 lg:px-8">
-      <h1 className="font-display text-xl font-bold">{title}</h1>
+      <div className="flex items-center gap-2">
+        {leftContent}
+        <h1 className="font-display text-xl font-bold">{title}</h1>
+      </div>
 
       <div className="flex items-center gap-2">
         <button
