@@ -26,19 +26,21 @@ const createApp = (io) => {
 
   app.use(helmet());
   app.use(mongoSanitize());
-  const allowedOrigins = [
+ const allowedOrigins = [
   "http://localhost:5173",
   "https://parola-project.vercel.app",
-  "https://parola-project-97ogpd28n-sneha-bhartis-projects-187557b8.vercel.app",
 ];
 
 app.use(cors({
   origin(origin, callback) {
-    if (!origin || allowedOrigins.includes(origin)) {
-      callback(null, true);
-    } else {
-      callback(new Error("Not allowed by CORS"));
+    if (
+      !origin ||
+      allowedOrigins.includes(origin) ||
+      /\.vercel\.app$/.test(new URL(origin).hostname)
+    ) {
+      return callback(null, true);
     }
+    return callback(new Error("Origin not allowed by CORS"));
   },
   credentials: true,
 }));
