@@ -19,7 +19,7 @@ const getMessages = async (req, res, next) => {
     const limit = Math.min(parseInt(req.query.limit) || 30, 50);
     const skip = (page - 1) * limit;
 
-    const messages = await Message.find({ chat: chat._id, isDeleted: false })
+    const messages = await Message.find({ chat: chat._id })
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(limit)
@@ -184,4 +184,84 @@ const markChatAsRead = async (req, res, next) => {
   }
 };
 
-module.exports = { getMessages, sendMessage, reactToMessage, markChatAsRead };
+/**
+ * PUT /api/chats/messages/:messageId
+ * Body: { text }
+ * Edits a text message. Only the sender can edit their own message, and
+ * only while it hasn't been deleted.
+ */
+const editMessage = async (req, res, next) => {
+  try {
+    const { text = '' } = req.body;
+    if (!text.trim()) return res.status(400).json({ success: false, message: 'Message text cannot be empty.' });
+
+    const message = await Message.findById(req.params.messageId);
+    if (!message) return res.status(404).json({ success: false, message: 'Message not found.' });
+
+    if (String(message.sender) !== String(req.user._id)) {
+      return res.status(403).json({ success: false, message: 'You can only edit your own messages.' });
+    }
+    if (message.isDeleted) {
+      return res.status(400).json({ success: false, message: 'Cannot edit a deleted message.' });
+    }
+    if (message.contentType !== 'text') {
+      return res.status(400).json({ success: false, message: 'Only text messages can be edited.' });
+    }
+
+    const analysis = analyzeText(text);
+    if (analysis.status === 'rejected') {
+      return res.status(400).json({ success: false, message: 'Message blocked: contains offensive language or spam.' });
+    }
+
+    message.text = text.trim();
+    message.isEdited = true;
+    message.editedAt = new Date();
+    await message.save();
+
+    const populated = await message.populate('sender', 'username fullName avatar');
+
+    if (req.io) {
+      req.io.to(`chat:${message.chat}`).emit('message:edited', populated);
+    }
+
+    res.status(200).json({ success: true, message: populated });
+  } catch (err) {
+    next(err);
+  }
+};
+
+/**
+ * DELETE /api/chats/messages/:messageId
+ * Soft-deletes a message ("delete for everyone"). Only the sender can
+ * delete their own message. Original text/media are cleared; the chat
+ * UI shows a "This message was deleted" placeholder instead.
+ */
+const deleteMessage = async (req, res, next) => {
+  try {
+    const message = await Message.findById(req.params.messageId);
+    if (!message) return res.status(404).json({ success: false, message: 'Message not found.' });
+
+    if (String(message.sender) !== String(req.user._id)) {
+      return res.status(403).json({ success: false, message: 'You can only delete your own messages.' });
+    }
+    if (message.isDeleted) {
+      return res.status(200).json({ success: true, message: 'Message already deleted.' });
+    }
+
+    message.isDeleted = true;
+    message.text = '';
+    message.media = { url: '', publicId: '', duration: 0 };
+    message.reactions = [];
+    await message.save();
+
+    if (req.io) {
+      req.io.to(`chat:${message.chat}`).emit('message:deleted', { messageId: message._id, chatId: message.chat });
+    }
+
+    res.status(200).json({ success: true, message: 'Message deleted.' });
+  } catch (err) {
+    next(err);
+  }
+};
+
+module.exports = { getMessages, sendMessage, reactToMessage, markChatAsRead, editMessage, deleteMessage };

@@ -58,6 +58,14 @@ const ChatWindow = ({ chat, onBack }) => {
     const onReaction = ({ messageId, reactions }) => {
       setMessages((prev) => prev.map((m) => (m._id === messageId ? { ...m, reactions } : m)));
     };
+    const onEdited = (updated) => {
+      setMessages((prev) => prev.map((m) => (m._id === updated._id ? updated : m)));
+    };
+    const onDeleted = ({ messageId }) => {
+      setMessages((prev) =>
+        prev.map((m) => (m._id === messageId ? { ...m, isDeleted: true, text: '', media: {}, reactions: [] } : m))
+      );
+    };
     const onReadReceipt = ({ readerId }) => {
       setMessages((prev) => prev.map((m) => ({ ...m, readBy: [...new Set([...(m.readBy || []), readerId])] })));
     };
@@ -66,6 +74,8 @@ const ChatWindow = ({ chat, onBack }) => {
     socket.on('typing:update', onTyping);
     socket.on('message:sms_status_update', onSmsUpdate);
     socket.on('message:reaction_update', onReaction);
+    socket.on('message:edited', onEdited);
+    socket.on('message:deleted', onDeleted);
     socket.on('message:read_receipt', onReadReceipt);
 
     return () => {
@@ -73,6 +83,8 @@ const ChatWindow = ({ chat, onBack }) => {
       socket.off('typing:update', onTyping);
       socket.off('message:sms_status_update', onSmsUpdate);
       socket.off('message:reaction_update', onReaction);
+      socket.off('message:edited', onEdited);
+      socket.off('message:deleted', onDeleted);
       socket.off('message:read_receipt', onReadReceipt);
     };
   }, [socket, chat._id, user._id]);
@@ -194,6 +206,12 @@ const ChatWindow = ({ chat, onBack }) => {
             message={m}
             isMine={(m.sender?._id || m.sender) === user._id}
             isRead={m.readBy?.some((id) => id !== user._id && id !== (m.sender?._id || m.sender))}
+            onUpdate={(updated) => setMessages((prev) => prev.map((msg) => (msg._id === updated._id ? updated : msg)))}
+            onDelete={(messageId) =>
+              setMessages((prev) =>
+                prev.map((msg) => (msg._id === messageId ? { ...msg, isDeleted: true, text: '', media: {}, reactions: [] } : msg))
+              )
+            }
           />
         ))}
         <div ref={messagesEndRef} />

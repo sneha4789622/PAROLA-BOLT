@@ -9,7 +9,7 @@ const {
   addGroupMembers,
   leaveGroup,
 } = require('../controllers/chatController');
-const { getMessages, sendMessage, reactToMessage, markChatAsRead } = require('../controllers/messageController');
+const { getMessages, sendMessage, reactToMessage, markChatAsRead, editMessage, deleteMessage } = require('../controllers/messageController');
 
 router.use(protect);
 
@@ -23,5 +23,7 @@ router.get('/:chatId/messages', getMessages);
 router.post('/:chatId/messages', upload.single('media'), sendMessage);
 router.put('/:chatId/read', markChatAsRead);
 router.put('/messages/:messageId/react', reactToMessage);
+router.put('/messages/:messageId', editMessage);
+router.delete('/messages/:messageId', deleteMessage);
 
 module.exports = router;

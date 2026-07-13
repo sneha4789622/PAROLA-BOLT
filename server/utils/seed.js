@@ -18,10 +18,9 @@ const SAMPLE_USERS = [
     verificationStatus: 'verified',
     isAgeVerified: true,
     biometric: {
-      isRegistered: true,
-      deviceFingerprint: 'seed-admin-device',
-      faceTemplateHash: 'seed-admin-face-hash',
-      registeredAt: new Date(),
+      // No real face on file for seed data — first login will prompt
+      // this account to complete real face enrollment.
+      isRegistered: false,
     },
     bio: 'Platform administrator for Parola Bolt.',
   },
@@ -37,10 +36,9 @@ const SAMPLE_USERS = [
     verificationStatus: 'verified',
     isAgeVerified: true,
     biometric: {
-      isRegistered: true,
-      deviceFingerprint: 'seed-priyanka-device',
-      faceTemplateHash: 'seed-priyanka-face-hash',
-      registeredAt: new Date(),
+      // No real face on file for seed data — first login will prompt
+      // this account to complete real face enrollment.
+      isRegistered: false,
     },
     bio: 'Passionate about tech & travel ✈️ | Verified on Parola Bolt',
     location: 'Mumbai, India',
@@ -57,10 +55,9 @@ const SAMPLE_USERS = [
     verificationStatus: 'pending',
     isAgeVerified: true,
     biometric: {
-      isRegistered: true,
-      deviceFingerprint: 'seed-gufran-device',
-      faceTemplateHash: 'seed-gufran-face-hash',
-      registeredAt: new Date(),
+      // No real face on file for seed data — first login will prompt
+      // this account to complete real face enrollment.
+      isRegistered: false,
     },
     bio: 'Content moderator & photography enthusiast 📷',
     location: 'Bangalore, India',
@@ -77,10 +74,9 @@ const SAMPLE_USERS = [
     verificationStatus: 'verified',
     isAgeVerified: true,
     biometric: {
-      isRegistered: true,
-      deviceFingerprint: 'seed-priya-device',
-      faceTemplateHash: 'seed-priya-face-hash',
-      registeredAt: new Date(),
+      // No real face on file for seed data — first login will prompt
+      // this account to complete real face enrollment.
+      isRegistered: false,
     },
     bio: 'Yoga instructor & wellness advocate 🧘',
     location: 'Kerala, India',

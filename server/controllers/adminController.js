@@ -193,10 +193,22 @@ const reviewVerificationRequest = async (req, res, next) => {
       request.status = 'approved';
       user.isIdentityVerified = true;
       user.verificationStatus = 'verified';
+
+      if (request.documentType === 'aadhaar') {
+        user.aadhaarVerified = true;
+        user.isAgeVerified = true;
+        if (request.extracted?.age != null) user.age = request.extracted.age;
+        if (request.extracted?.aadhaarNumberMasked) user.aadhaarNumberMasked = request.extracted.aadhaarNumberMasked;
+        user.verifiedAt = new Date();
+      }
     } else {
       request.status = 'rejected';
       request.rejectionReason = rejectionReason;
       user.verificationStatus = 'rejected';
+
+      if (request.documentType === 'aadhaar') {
+        user.aadhaarVerified = false;
+      }
     }
 
     request.reviewedBy = req.user._id;

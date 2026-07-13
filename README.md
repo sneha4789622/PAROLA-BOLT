@@ -25,7 +25,7 @@ parola-bolt/
 
 ```bash
 cd server
-cp .env.example .env          # fill in MONGO_URI, JWT_SECRET, Cloudinary vars
+cp . .env         
 npm install
 npm run seed                  # optional: seed sample users/posts
 npm run dev                   # starts on http://localhost:5000
@@ -48,8 +48,8 @@ The Vite dev server proxies `/api` and `/socket.io` to `localhost:5000`.
 | Username    | Password            | Role       |
 |-------------|---------------------|------------|
 | `admin`     | `Admin@PB2025!`     | Admin      |
-| `aanya.s`   | `Aanya@Test2025!`   | User       |
-| `rohan.m`   | `Rohan@Test2025!`   | Moderator  |
+| `priyanka.d`   | `Priyanka@Test2025!`   | User       |
+| `gufran.a`   | `Gufran@Test2025!`   | Moderator  |
 | `priya.n`   | `Priya@Test2025!`   | User       |
 
 > All seed accounts skip biometric on login for testing. Set `biometric.isRegistered: true` in the DB (already done by the seed).

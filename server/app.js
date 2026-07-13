@@ -19,6 +19,7 @@ const adminRoutes = require('./routes/adminRoutes');
 const otpRoutes = require('./routes/otpRoutes');
 const settingsRoutes = require('./routes/settingsRoutes');
 const supportRoutes = require('./routes/supportRoutes');
+const verificationRoutes = require('./routes/verificationRoutes');
 
 const createApp = (io) => {
   const app = express();
@@ -58,6 +59,7 @@ const createApp = (io) => {
   app.use('/api/auth/otp', otpRoutes);
   app.use('/api/settings', settingsRoutes);
   app.use('/api/support', supportRoutes);
+  app.use('/api/verification', verificationRoutes);
 
   app.use(notFound);
   app.use(errorHandler);

@@ -57,7 +57,6 @@ const FAQ_SECTIONS = [
     faqs: [
       { q: 'What is SMS Fallback Mode?', a: 'When your internet connection drops, Parola Bolt automatically queues your messages and delivers them via simulated SMS to the recipient\'s phone. Messages sync back to the app when you reconnect.' },
       { q: 'Can I send voice notes?', a: 'Yes — tap the microphone icon in any chat to record a voice note. Tap again to stop and send.' },
-      { q: 'How do I create a group chat?', a: 'Go to Messages → tap the + icon → select "Group" → add participants → set a group name.' },
     ],
   },
   {

@@ -16,7 +16,30 @@ const getProfile = async (req, res, next) => {
 
     if (!user) return res.status(404).json({ success: false, message: 'User not found.' });
 
-    res.status(200).json({ success: true, user: user.toSafeObject() });
+    const profile = user.toSafeObject();
+
+    // Follow-request relationship status relative to the viewer (skip for own profile)
+    if (String(user._id) !== String(req.user._id)) {
+      const isFollowing = user.followers.some((f) => String(f._id) === String(req.user._id));
+
+      if (isFollowing) {
+        profile.relationship = 'following';
+      } else {
+        const outgoing = await FriendRequest.findOne({ sender: req.user._id, recipient: user._id, status: 'pending' });
+        const incoming = await FriendRequest.findOne({ sender: user._id, recipient: req.user._id, status: 'pending' });
+
+        if (outgoing) {
+          profile.relationship = 'requested';
+        } else if (incoming) {
+          profile.relationship = 'incoming_request';
+          profile.incomingRequestId = incoming._id;
+        } else {
+          profile.relationship = 'none';
+        }
+      }
+    }
+
+    res.status(200).json({ success: true, user: profile });
   } catch (err) {
     next(err);
   }
@@ -124,6 +147,8 @@ const getProfileReels = async (req, res, next) => {
 
 /**
  * POST /api/users/:userId/follow
+ * Sends a follow request rather than following instantly. The target
+ * only appears in "Following" once they Accept it (see respondFriendRequest).
  */
 const followUser = async (req, res, next) => {
   try {
@@ -140,19 +165,45 @@ const followUser = async (req, res, next) => {
       return res.status(409).json({ success: false, message: 'You already follow this user.' });
     }
 
-    me.following.push(targetId);
-    target.followers.push(me._id);
-    await me.save();
-    await target.save();
+    const existingOutgoing = await FriendRequest.findOne({ sender: me._id, recipient: targetId, status: 'pending' });
+    if (existingOutgoing) {
+      return res.status(409).json({ success: false, message: 'Follow request already sent.' });
+    }
+
+    // They already sent YOU a request — accept it instead of creating a
+    // second, redundant one in the other direction.
+    const existingIncoming = await FriendRequest.findOne({ sender: targetId, recipient: me._id, status: 'pending' });
+    if (existingIncoming) {
+      existingIncoming.status = 'accepted';
+      await existingIncoming.save();
+
+      if (!me.following.includes(target._id)) me.following.push(target._id);
+      if (!target.following.includes(me._id)) target.following.push(me._id);
+      if (!me.followers.includes(target._id)) me.followers.push(target._id);
+      if (!target.followers.includes(me._id)) target.followers.push(me._id);
+      await me.save();
+      await target.save();
+
+      await Notification.create({
+        recipient: target._id,
+        sender: me._id,
+        type: 'friend_request_accepted',
+        text: `${me.fullName} accepted your follow request.`,
+      });
+
+      return res.status(200).json({ success: true, status: 'following', message: `You are now following ${target.username}.` });
+    }
+
+    await FriendRequest.create({ sender: me._id, recipient: target._id, status: 'pending' });
 
     await Notification.create({
       recipient: target._id,
       sender: me._id,
-      type: 'friend_request_accepted',
-      text: `${me.fullName} started following you.`,
+      type: 'friend_request',
+      text: `${me.fullName} wants to follow you.`,
     });
 
-    res.status(200).json({ success: true, message: `You are now following ${target.username}.` });
+    res.status(201).json({ success: true, status: 'requested', message: 'Follow request sent.' });
   } catch (err) {
     next(err);
   }
@@ -160,6 +211,8 @@ const followUser = async (req, res, next) => {
 
 /**
  * DELETE /api/users/:userId/follow
+ * If already following: unfollows (removes the mutual connection).
+ * If a follow request is still pending: cancels it instead.
  */
 const unfollowUser = async (req, res, next) => {
   try {
@@ -168,12 +221,33 @@ const unfollowUser = async (req, res, next) => {
     if (!target) return res.status(404).json({ success: false, message: 'User not found.' });
 
     const me = req.user;
-    me.following = me.following.filter((id) => String(id) !== String(targetId));
-    target.followers = target.followers.filter((id) => String(id) !== String(me._id));
-    await me.save();
-    await target.save();
 
-    res.status(200).json({ success: true, message: `You unfollowed ${target.username}.` });
+    if (me.following.includes(targetId)) {
+      me.following = me.following.filter((id) => String(id) !== String(targetId));
+      target.followers = target.followers.filter((id) => String(id) !== String(me._id));
+      // Mutual — also drop the reverse direction so it's a clean unfriend
+      me.followers = me.followers.filter((id) => String(id) !== String(targetId));
+      target.following = target.following.filter((id) => String(id) !== String(me._id));
+      await me.save();
+      await target.save();
+
+      await FriendRequest.deleteMany({
+        $or: [
+          { sender: me._id, recipient: targetId },
+          { sender: targetId, recipient: me._id },
+        ],
+      });
+
+      return res.status(200).json({ success: true, status: 'none', message: `You unfollowed ${target.username}.` });
+    }
+
+    const pending = await FriendRequest.findOne({ sender: me._id, recipient: targetId, status: 'pending' });
+    if (pending) {
+      await FriendRequest.deleteOne({ _id: pending._id });
+      return res.status(200).json({ success: true, status: 'none', message: 'Follow request cancelled.' });
+    }
+
+    return res.status(400).json({ success: false, message: 'You are not following this user.' });
   } catch (err) {
     next(err);
   }
@@ -238,19 +312,21 @@ const respondFriendRequest = async (req, res, next) => {
       if (!recipient.followers.includes(sender._id)) recipient.followers.push(sender._id);
       await sender.save();
       await recipient.save();
+      await fr.save();
 
       await Notification.create({
         recipient: fr.sender,
         sender: req.user._id,
         type: 'friend_request_accepted',
-        text: `${req.user.fullName} accepted your friend request.`,
+        text: `${req.user.fullName} accepted your follow request.`,
       });
-    } else {
-      fr.status = 'declined';
+
+      return res.status(200).json({ success: true, message: 'Follow request accepted.', friendRequest: fr });
     }
 
-    await fr.save();
-    res.status(200).json({ success: true, message: `Friend request ${fr.status}.`, friendRequest: fr });
+    // Reject — the request is deleted entirely, not just marked declined
+    await FriendRequest.deleteOne({ _id: fr._id });
+    res.status(200).json({ success: true, message: 'Follow request rejected.' });
   } catch (err) {
     next(err);
   }

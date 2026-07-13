@@ -26,6 +26,18 @@ const DashboardPage = () => {
       .finally(() => setLoading(false));
   }, []);
 
+  const respondToRequest = async (requestId, action) => {
+    try {
+      await api.put(`/users/friend-request/${requestId}/respond`, { action });
+      setData((prev) => ({
+        ...prev,
+        friendRequests: prev.friendRequests.filter((fr) => fr._id !== requestId),
+      }));
+    } catch {
+      // ignore
+    }
+  };
+
   const vConfig = verificationConfig[data?.verificationStatus || 'unverified'];
 
   return (
@@ -79,7 +91,7 @@ const DashboardPage = () => {
         {/* Friend requests */}
         <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }} className="card p-5">
           <h3 className="font-display font-semibold mb-3 flex items-center gap-2">
-            <UserPlus size={18} className="text-bolt-500" /> Friend requests
+            <UserPlus size={18} className="text-bolt-500" /> Follow requests
           </h3>
           {loading ? (
             <p className="text-sm text-ink-700/50 dark:text-cream/40">Loading…</p>
@@ -92,17 +104,29 @@ const DashboardPage = () => {
                     className="h-9 w-9 rounded-full object-cover"
                     alt=""
                   />
-                  <div className="min-w-0">
+                  <div className="min-w-0 flex-1">
                     <p className="text-sm font-medium truncate flex items-center gap-1">
                       {fr.sender?.fullName} {fr.sender?.isIdentityVerified && <VerifiedBadge size={12} />}
                     </p>
                     <p className="text-xs text-ink-700/50 dark:text-cream/40">@{fr.sender?.username}</p>
                   </div>
+                  <button
+                    onClick={() => respondToRequest(fr._id, 'accept')}
+                    className="text-xs font-semibold text-mint hover:underline"
+                  >
+                    Accept
+                  </button>
+                  <button
+                    onClick={() => respondToRequest(fr._id, 'decline')}
+                    className="text-xs font-semibold text-ink-700/50 dark:text-cream/40 hover:underline"
+                  >
+                    Reject
+                  </button>
                 </li>
               ))}
             </ul>
           ) : (
-            <p className="text-sm text-ink-700/50 dark:text-cream/40">No pending friend requests.</p>
+            <p className="text-sm text-ink-700/50 dark:text-cream/40">No pending follow requests.</p>
           )}
         </motion.div>
 

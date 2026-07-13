@@ -6,6 +6,7 @@ import {
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import VerifiedBadge from './VerifiedBadge';
+import { Users, UsersRound } from 'lucide-react';
 
 const navItemClass = ({ isActive }) =>
   `flex items-center gap-3 rounded-xl px-4 py-2.5 font-display text-sm font-medium transition-colors ${

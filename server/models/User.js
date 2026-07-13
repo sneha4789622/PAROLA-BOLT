@@ -80,13 +80,35 @@ const UserSchema = new mongoose.Schema(
       enum: ['unverified', 'pending', 'verified', 'rejected'],
       default: 'unverified',
     },
+    
 
-    // Biometric onboarding
+    // Aadhaar-based identity + age verification (real OCR-extracted data)
+    aadhaarVerified: { type: Boolean, default: false },
+    // AES-256-GCM encrypted 12-digit number — never stored/returned in plaintext.
+    aadhaarNumber: { type: String, default: '', select: false },
+    // "XXXX XXXX 1234" — safe to display, safe to return from the API.
+    aadhaarNumberMasked: { type: String, default: '' },
+    // Deterministic HMAC of the number — indexed, used only to catch
+    // duplicate-Aadhaar registrations without ever decrypting other rows.
+    aadhaarNumberHash: { type: String, default: '', index: true },
+    age: { type: Number, default: null },
+    verifiedAt: { type: Date, default: null },
+
+    // Biometric onboarding — real face verification
     biometric: {
       isRegistered: { type: Boolean, default: false },
       deviceFingerprint: { type: String, default: '', index: true },
-      faceTemplateHash: { type: String, default: '' }, // mock hash, never raw biometric data
+      // AES-256-GCM encrypted face descriptor (128-d embedding). Never a
+      // raw image, never plaintext. select:false keeps it out of normal
+      // queries; matching code explicitly selects it with '+'.
+      faceDescriptor: { type: String, default: '', select: false },
       registeredAt: { type: Date, default: null },
+      livenessVerifiedAt: { type: Date, default: null },
+      // Login-time face verification lockout (separate from password lockout)
+      failedAttempts: { type: Number, default: 0 },
+      lockedUntil: { type: Date, default: null },
+      // Accounts that skip biometric verification entirely (admin/seed/demo)
+      exempt: { type: Boolean, default: false },
     },
 
     // Role-based access control
@@ -188,7 +210,8 @@ UserSchema.methods.toSafeObject = function () {
   const obj = this.toObject();
   delete obj.password;
   delete obj.refreshTokens;
-  delete obj.biometric?.faceTemplateHash;
+  delete obj.biometric?.faceDescriptor;
+  delete obj.aadhaarNumber;
   obj.profileCompletion = this.getProfileCompletion();
   obj.followersCount = this.followers?.length || 0;
   obj.followingCount = this.following?.length || 0;

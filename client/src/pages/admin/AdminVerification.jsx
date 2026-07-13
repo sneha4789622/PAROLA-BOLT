@@ -33,6 +33,19 @@ const AdminVerification = () => {
   }
 };
 
+  // For fake/fraudulent Aadhaar submissions — suspends the account entirely
+  // (reuses the existing admin user-status endpoint, no new backend needed).
+  const suspendUser = async (userId, requestId) => {
+    if (!window.confirm('Suspend this user for submitting a fake/fraudulent document?')) return;
+    try {
+      await api.put(`/admin/users/${userId}/status`, { status: 'suspended' });
+      setRequests((prev) => prev.filter((r) => r._id !== requestId));
+      alert('User suspended.');
+    } catch (err) {
+      alert(err.response?.data?.message || 'Could not suspend user.');
+    }
+  };
+
   return (
     <div>
       <div className="mb-4">
@@ -72,6 +85,17 @@ const AdminVerification = () => {
                 </span>
               </div>
 
+              {req.documentType === 'aadhaar' && (
+                <div className="mb-3 rounded-lg bg-bolt-50 dark:bg-ink-800 px-3 py-2 text-xs space-y-0.5">
+                  <p><span className="text-ink-700/50 dark:text-cream/40">Name on document:</span> {req.extracted?.nameOnDocument || 'Not clearly readable'}</p>
+                  <p><span className="text-ink-700/50 dark:text-cream/40">Aadhaar number:</span> {req.extracted?.aadhaarNumberMasked || 'Not clearly readable'}</p>
+                  <p><span className="text-ink-700/50 dark:text-cream/40">Date of birth:</span> {req.extracted?.dateOfBirth ? new Date(req.extracted.dateOfBirth).toLocaleDateString() : 'Not clearly readable'}</p>
+                  <p><span className="text-ink-700/50 dark:text-cream/40">Age:</span> {req.extracted?.age ?? '—'}</p>
+                  <p><span className="text-ink-700/50 dark:text-cream/40">OCR confidence:</span> {req.extracted?.ocrConfident ? 'Confident' : 'Low — verify manually'}</p>
+                  {req.autoDecision && <p className="text-amber-dark dark:text-amber">Auto-decided by the system</p>}
+                </div>
+              )}
+
               <div className="flex flex-wrap gap-2 mb-3">
                 {req.documentFront?.url && (
                   <a href={req.documentFront.url} target="_blank" rel="noreferrer"
@@ -110,6 +134,12 @@ const AdminVerification = () => {
                       className="btn-secondary text-xs"
                     >
                       <XCircle size={14} className="text-red-500" /> Reject
+                    </button>
+                    <button
+                      onClick={() => suspendUser(req.user?._id, req._id)}
+                      className="btn-secondary text-xs text-red-600"
+                    >
+                      <XCircle size={14} /> Suspend user (fake document)
                     </button>
                   </div>
                 </div>

@@ -6,7 +6,7 @@ const VerificationRequestSchema = new mongoose.Schema(
 
     documentType: {
       type: String,
-      enum: ['government_id', 'passport', 'driving_license', 'other'],
+      enum: ['government_id', 'passport', 'driving_license', 'aadhaar', 'other'],
       required: true,
     },
     documentFront: {
@@ -21,6 +21,18 @@ const VerificationRequestSchema = new mongoose.Schema(
       url: { type: String, default: '' },
       publicId: { type: String, default: '' },
     },
+
+    // OCR-extracted data (Aadhaar submissions only). The raw number itself
+    // is never stored here — only what's safe to show an admin reviewer.
+    extracted: {
+      nameOnDocument: { type: String, default: '' },
+      dateOfBirth: { type: Date, default: null },
+      age: { type: Number, default: null },
+      aadhaarNumberMasked: { type: String, default: '' },
+      ocrConfident: { type: Boolean, default: false }, // false = OCR couldn't read it clearly
+    },
+    // true if the age/duplicate check auto-decided this without a human reviewer
+    autoDecision: { type: Boolean, default: false },
 
     status: {
       type: String,

@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useParams, useSearchParams, useNavigate } from 'react-router-dom';
 import {
   MapPin, Link as LinkIcon, UserPlus, UserMinus,
-  MessageCircle, ShieldCheck, Upload, Camera, Edit3
+  MessageCircle, ShieldCheck, Upload, Camera, Edit3, X
 } from 'lucide-react';
 import api from '../api/axios';
 import Topbar from '../components/Topbar';
@@ -37,6 +37,7 @@ const ProfilePage = () => {
   const [verifySubmitting, setVerifySubmitting] = useState(false);
   const [verifyNotice, setVerifyNotice] = useState('');
   const [notice, setNotice] = useState('');
+  const [listModal, setListModal] = useState(null); // null | 'followers' | 'following'
 
   const isOwnProfile = me?.username === username;
 
@@ -104,11 +105,21 @@ const ProfilePage = () => {
 
   const handleFollow = async () => {
     try {
-      if (profile.followers?.some((f) => (f._id || f) === me._id)) {
+      if (profile.relationship === 'following' || profile.relationship === 'requested') {
+        // Unfollow if already following, or cancel the pending outgoing request
         await api.delete(`/users/${profile._id}/follow`);
       } else {
         await api.post(`/users/${profile._id}/follow`);
       }
+      await loadProfile();
+    } catch (err) {
+      alert(err.response?.data?.message || 'Action failed.');
+    }
+  };
+
+  const respondToIncomingRequest = async (action) => {
+    try {
+      await api.put(`/users/friend-request/${profile.incomingRequestId}/respond`, { action });
       await loadProfile();
     } catch (err) {
       alert(err.response?.data?.message || 'Action failed.');
@@ -156,7 +167,7 @@ const ProfilePage = () => {
     );
   }
 
-  const isFollowing = profile.followers?.some((f) => (f._id || f) === me?._id);
+  const isFollowing = profile.relationship === 'following';
 
   /* ── Avatar src ── */
   const avatarSrc =
@@ -245,10 +256,21 @@ const ProfilePage = () => {
           {/* Action buttons */}
           {!isOwnProfile ? (
             <div className="flex gap-2">
-              <button onClick={handleFollow} className="btn-secondary text-sm">
-                {isFollowing ? <UserMinus size={15} /> : <UserPlus size={15} />}
-                {isFollowing ? 'Unfollow' : 'Follow'}
-              </button>
+              {profile.relationship === 'incoming_request' ? (
+                <>
+                  <button onClick={() => respondToIncomingRequest('accept')} className="btn-primary text-sm">
+                    <UserPlus size={15} /> Accept
+                  </button>
+                  <button onClick={() => respondToIncomingRequest('decline')} className="btn-secondary text-sm">
+                    <UserMinus size={15} /> Reject
+                  </button>
+                </>
+              ) : (
+                <button onClick={handleFollow} className="btn-secondary text-sm">
+                  {isFollowing ? <UserMinus size={15} /> : <UserPlus size={15} />}
+                  {isFollowing ? 'Unfollow' : profile.relationship === 'requested' ? 'Requested' : 'Follow'}
+                </button>
+              )}
               <button onClick={startChat} className="btn-primary text-sm">
                 <MessageCircle size={15} /> Message
               </button>
@@ -297,10 +319,64 @@ const ProfilePage = () => {
 
           <div className="flex gap-5 text-sm font-medium">
             <span><strong>{profile.postsCount || 0}</strong> <span className="font-normal text-ink-700/60 dark:text-cream/40">Posts</span></span>
-            <span><strong>{profile.followersCount ?? 0}</strong> <span className="font-normal text-ink-700/60 dark:text-cream/40">Followers</span></span>
-            <span><strong>{profile.followingCount ?? 0}</strong> <span className="font-normal text-ink-700/60 dark:text-cream/40">Following</span></span>
+            <button onClick={() => setListModal('followers')} className="hover:underline">
+              <strong>{profile.followersCount ?? 0}</strong> <span className="font-normal text-ink-700/60 dark:text-cream/40">Followers</span>
+            </button>
+            <button onClick={() => setListModal('following')} className="hover:underline">
+              <strong>{profile.followingCount ?? 0}</strong> <span className="font-normal text-ink-700/60 dark:text-cream/40">Following</span>
+            </button>
           </div>
         </div>
+
+        {/* ── Followers / Following list modal ── */}
+        {listModal && (
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+            onClick={() => setListModal(null)}
+          >
+            <div
+              className="card w-full max-w-sm max-h-[70vh] flex flex-col overflow-hidden"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-center justify-between p-4 border-b border-bolt-100 dark:border-ink-700">
+                <h3 className="font-display font-semibold capitalize">{listModal}</h3>
+                <button onClick={() => setListModal(null)} className="text-ink-700/50 dark:text-cream/40 hover:text-ink-900 dark:hover:text-cream">
+                  <X size={18} />
+                </button>
+              </div>
+              <div className="overflow-y-auto p-2">
+                {profile[listModal]?.length ? (
+                  profile[listModal].map((u) => (
+                    <button
+                      key={u._id}
+                      onClick={() => {
+                        setListModal(null);
+                        navigate(`/profile/${u.username}`);
+                      }}
+                      className="w-full flex items-center gap-3 p-2.5 rounded-xl hover:bg-bolt-50 dark:hover:bg-ink-800 text-left"
+                    >
+                      <img
+                        src={u.avatar?.url || `https://api.dicebear.com/7.x/initials/svg?seed=${u.username}`}
+                        className="h-10 w-10 rounded-full object-cover"
+                        alt=""
+                      />
+                      <div className="min-w-0">
+                        <p className="text-sm font-medium truncate flex items-center gap-1">
+                          {u.fullName} {u.isIdentityVerified && <VerifiedBadge size={12} />}
+                        </p>
+                        <p className="text-xs text-ink-700/50 dark:text-cream/40">@{u.username}</p>
+                      </div>
+                    </button>
+                  ))
+                ) : (
+                  <p className="text-sm text-center py-8 text-ink-700/50 dark:text-cream/40">
+                    No {listModal} yet.
+                  </p>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* ── Verification CTA (own profile, not yet verified) ── */}
         {isOwnProfile && !profile.isIdentityVerified && (

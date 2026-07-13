@@ -11,6 +11,7 @@ import AppLayout from './components/AppLayout';
 import LoginPage from './pages/LoginPage';
 import SignupPage from './pages/SignupPage';
 import BiometricPage from './pages/BiometricPage';
+import AadhaarVerificationPage from './pages/AadhaarVerificationPage';
 import OtpLoginPage from './pages/OtpLoginPage';
 import ForgotPasswordPage from './pages/ForgotPasswordPage';
 
@@ -49,6 +50,8 @@ const App = () => (
 
             {/* Protected app */}
             <Route element={<ProtectedRoute />}>
+              <Route path="/aadhaar-verification" element={<AadhaarVerificationPage />} />
+
               <Route element={<AppLayout />}>
                 <Route index element={<Navigate to="/dashboard" replace />} />
                 <Route path="/dashboard" element={<DashboardPage />} />

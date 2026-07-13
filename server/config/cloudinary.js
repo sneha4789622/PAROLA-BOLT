@@ -12,11 +12,14 @@ cloudinary.config({
 const storage = new CloudinaryStorage({
   cloudinary,
   params: async (req, file) => {
-    const isVideo = file.mimetype.startsWith('video');
+    // Cloudinary has no separate "audio" resource_type — audio files
+    // (like voice notes recorded as audio/webm) must also use "video".
+    // Only leftover file types fall back to "image".
+    const isAudioOrVideo = file.mimetype.startsWith('video') || file.mimetype.startsWith('audio');
     return {
       folder: 'parola-bolt',
-      resource_type: isVideo ? 'video' : 'image',
-      allowed_formats: ['jpg', 'jpeg', 'png', 'webp', 'gif', 'mp4', 'mov', 'webm', 'mp3', 'm4a'],
+      resource_type: isAudioOrVideo ? 'video' : 'image',
+      allowed_formats: ['jpg', 'jpeg', 'png', 'webp', 'gif', 'mp4', 'mov', 'webm', 'mp3', 'm4a', 'ogg', 'wav'],
     };
   },
 });
