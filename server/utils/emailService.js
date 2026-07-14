@@ -1,49 +1,200 @@
-const nodemailer = require('nodemailer');
+// const nodemailer = require('nodemailer');
 
-// Create transporter — uses Gmail by default.
-// Set EMAIL_HOST/PORT for custom SMTP (e.g. SendGrid, Mailgun).
-const createTransporter = () => {
-  if (process.env.EMAIL_HOST) {
-    return nodemailer.createTransport({
-      host: process.env.EMAIL_HOST,
-      port: Number(process.env.EMAIL_PORT) || 587,
-      secure: process.env.EMAIL_SECURE === 'true',
-      auth: {
-        user: process.env.EMAIL_USER,
-        pass: process.env.EMAIL_PASS,
-      },
+// // Create transporter — uses Gmail by default.
+// // Set EMAIL_HOST/PORT for custom SMTP (e.g. SendGrid, Mailgun).
+// const createTransporter = () => {
+//   if (process.env.EMAIL_HOST) {
+//     return nodemailer.createTransport({
+//       host: process.env.EMAIL_HOST,
+//       port: Number(process.env.EMAIL_PORT) || 587,
+//       secure: process.env.EMAIL_SECURE === 'true',
+//       auth: {
+//         user: process.env.EMAIL_USER,
+//         pass: process.env.EMAIL_PASS,
+//       },
+//     });
+//   }
+
+//   // Gmail shortcut
+//   return nodemailer.createTransport({
+//     service: 'gmail',
+//     auth: {
+//       user: process.env.EMAIL_USER,
+//       pass: process.env.EMAIL_PASS, // Gmail App Password (not your real password)
+//     },
+//   });
+// };
+
+// /**
+//  * Generate a 6-digit OTP
+//  */
+// const generateOtp = () => {
+//   return Math.floor(100000 + Math.random() * 900000).toString();
+// };
+
+// /**
+//  * Send OTP via email
+//  */
+// const sendOtpEmail = async ({ to, otp, purpose, fullName = '' }) => {
+//   // In development without email creds, just log and return
+//   if (!process.env.EMAIL_USER || process.env.EMAIL_USER === 'your_email@gmail.com') {
+//     console.log(`\n📧 [EMAIL OTP - DEV MODE]`);
+//     console.log(`   To      : ${to}`);
+//     console.log(`   OTP     : ${otp}`);
+//     console.log(`   Purpose : ${purpose}`);
+//     console.log(`   (Set EMAIL_USER + EMAIL_PASS in .env to send real emails)\n`);
+//     return { simulated: true };
+//   }
+
+//   const subjects = {
+//     login: 'Your Parola Bolt Login OTP',
+//     forgot_password: 'Reset Your Parola Bolt Password',
+//     verify_email: 'Verify Your Parola Bolt Email',
+//   };
+
+//   const transporter = createTransporter();
+
+//   await transporter.sendMail({
+//     from: `"Parola Bolt" <${process.env.EMAIL_USER}>`,
+//     to,
+//     subject: subjects[purpose] || 'Parola Bolt OTP',
+//     html: `
+//       <div style="font-family:Inter,sans-serif;max-width:480px;margin:0 auto;background:#f4f2ff;padding:32px;border-radius:16px;">
+//         <div style="text-align:center;margin-bottom:24px;">
+//           <div style="background:#6D5DFC;display:inline-flex;padding:12px;border-radius:12px;">
+//             <span style="color:#FFB100;font-size:24px;font-weight:700;">⚡</span>
+//           </div>
+//           <h1 style="color:#221A59;font-size:22px;margin:12px 0 4px;">Parola Bolt</h1>
+//           <p style="color:#666;font-size:13px;margin:0;">Fast. Verified. Real.</p>
+//         </div>
+
+//         <div style="background:white;border-radius:12px;padding:24px;text-align:center;">
+//           <h2 style="color:#221A59;margin:0 0 8px;">${purpose === 'forgot_password' ? 'Password Reset' : 'Your OTP Code'}</h2>
+//           <p style="color:#555;font-size:14px;margin:0 0 20px;">
+//             ${fullName ? `Hi ${fullName},` : 'Hi,'} use the code below.
+//             It expires in <strong>5 minutes</strong>.
+//           </p>
+
+//           <div style="background:#F4F2FF;border-radius:12px;padding:20px;margin:16px 0;">
+//             <span style="font-size:36px;font-weight:700;letter-spacing:12px;color:#6D5DFC;">${otp}</span>
+//           </div>
+
+//           <p style="color:#999;font-size:12px;margin:16px 0 0;">
+//             Never share this OTP with anyone. Parola Bolt staff will never ask for your OTP.
+//           </p>
+//         </div>
+
+//         <p style="text-align:center;color:#aaa;font-size:11px;margin:16px 0 0;">
+//           © ${new Date().getFullYear()} Parola Bolt. If you didn't request this, ignore this email.
+//         </p>
+//       </div>
+//     `,
+//   });
+
+//   return { sent: true };
+// };
+
+// /**
+//  * Simulate SMS OTP (replace with Twilio when ready)
+//  */
+// const sendOtpSms = async ({ to, otp, purpose }) => {
+//   console.log(`\n📱 [SMS OTP - SIMULATED]`);
+//   console.log(`   To      : ${to}`);
+//   console.log(`   OTP     : ${otp}`);
+//   console.log(`   Purpose : ${purpose}`);
+//   console.log(`   (Integrate Twilio in SMS_FALLBACK_MODE=live to send real SMS)\n`);
+//   return { simulated: true };
+// };
+
+// module.exports = { generateOtp, sendOtpEmail, sendOtpSms };
+const https = require('https');
+
+const generateOtp = () => Math.floor(100000 + Math.random() * 900000).toString();
+
+const isResendConfigured = () =>
+  process.env.RESEND_API_KEY && process.env.RESEND_API_KEY.length > 10;
+
+const isMsg91Configured = () =>
+  process.env.MSG91_API_KEY &&
+  process.env.MSG91_API_KEY.length > 10;
+
+const isFast2SmsConfigured = () =>
+  process.env.FAST2SMS_API_KEY &&
+  process.env.FAST2SMS_API_KEY !== 'your_fast2sms_api_key';
+
+const isTwilioConfigured = () =>
+  process.env.TWILIO_SID &&
+  process.env.TWILIO_SID !== 'dummy' &&
+  process.env.TWILIO_AUTH_TOKEN;
+
+/**
+ * Sends via the Resend HTTP API (https://api.resend.com/emails) instead
+ * of raw SMTP. Cloud hosts like Railway frequently block outbound SMTP
+ * ports (25/465/587) entirely — but HTTPS (443) always works, since
+ * that's how the app reaches every other API. Resend's free tier
+ * (100/day, 3000/month) needs only RESEND_API_KEY.
+ *
+ * Note: without a verified sending domain, Resend's shared test sender
+ * (onboarding@resend.dev) can only deliver to the email address you
+ * signed up to Resend with. Verify a domain in the Resend dashboard to
+ * send to any recipient in production.
+ */
+const sendViaResend = ({ to, subject, html }) => {
+  return new Promise((resolve, reject) => {
+    const postData = JSON.stringify({
+      from: process.env.RESEND_FROM_EMAIL || 'Parola Bolt <onboarding@resend.dev>',
+      to: [to],
+      subject,
+      html,
     });
-  }
 
-  // Gmail shortcut
-  return nodemailer.createTransport({
-    service: 'gmail',
-    auth: {
-      user: process.env.EMAIL_USER,
-      pass: process.env.EMAIL_PASS, // Gmail App Password (not your real password)
-    },
+    const options = {
+      hostname: 'api.resend.com',
+      path: '/emails',
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${process.env.RESEND_API_KEY}`,
+        'Content-Type': 'application/json',
+        'Content-Length': Buffer.byteLength(postData),
+      },
+      timeout: 10000, // fail fast rather than hang
+    };
+
+    const req = https.request(options, (res) => {
+      let data = '';
+      res.on('data', (chunk) => { data += chunk; });
+      res.on('end', () => {
+        try {
+          const parsed = JSON.parse(data);
+          if (res.statusCode >= 200 && res.statusCode < 300) {
+            resolve({ sent: true, id: parsed.id });
+          } else {
+            reject(new Error(parsed.message || `Resend API error (status ${res.statusCode})`));
+          }
+        } catch {
+          reject(new Error('Resend response parse error'));
+        }
+      });
+    });
+
+    req.on('timeout', () => req.destroy(new Error('Resend request timed out')));
+    req.on('error', reject);
+    req.write(postData);
+    req.end();
   });
 };
 
-/**
- * Generate a 6-digit OTP
- */
-const generateOtp = () => {
-  return Math.floor(100000 + Math.random() * 900000).toString();
-};
-
-/**
- * Send OTP via email
- */
+// ─── Send OTP Email ───────────────────────────────────────────────────────────
 const sendOtpEmail = async ({ to, otp, purpose, fullName = '' }) => {
-  // In development without email creds, just log and return
-  if (!process.env.EMAIL_USER || process.env.EMAIL_USER === 'your_email@gmail.com') {
-    console.log(`\n📧 [EMAIL OTP - DEV MODE]`);
-    console.log(`   To      : ${to}`);
-    console.log(`   OTP     : ${otp}`);
-    console.log(`   Purpose : ${purpose}`);
-    console.log(`   (Set EMAIL_USER + EMAIL_PASS in .env to send real emails)\n`);
-    return { simulated: true };
+  if (!isResendConfigured()) {
+    console.log('\n╔══════════════════════════════════════╗');
+    console.log('║     📧  OTP (Dev Mode - No Email)    ║');
+    console.log('╠══════════════════════════════════════╣');
+    console.log(`║  To      : ${String(to).padEnd(27)}║`);
+    console.log(`║  OTP     : ${String(otp).padEnd(27)}║`);
+    console.log(`║  Purpose : ${String(purpose).padEnd(27)}║`);
+    console.log('╚══════════════════════════════════════╝\n');
+    return { simulated: true, otp };
   }
 
   const subjects = {
@@ -52,58 +203,207 @@ const sendOtpEmail = async ({ to, otp, purpose, fullName = '' }) => {
     verify_email: 'Verify Your Parola Bolt Email',
   };
 
-  const transporter = createTransporter();
-
-  await transporter.sendMail({
-    from: `"Parola Bolt" <${process.env.EMAIL_USER}>`,
-    to,
-    subject: subjects[purpose] || 'Parola Bolt OTP',
-    html: `
-      <div style="font-family:Inter,sans-serif;max-width:480px;margin:0 auto;background:#f4f2ff;padding:32px;border-radius:16px;">
-        <div style="text-align:center;margin-bottom:24px;">
-          <div style="background:#6D5DFC;display:inline-flex;padding:12px;border-radius:12px;">
-            <span style="color:#FFB100;font-size:24px;font-weight:700;">⚡</span>
+  try {
+    await sendViaResend({
+      to,
+      subject: subjects[purpose] || 'Parola Bolt OTP',
+      html: `
+        <div style="font-family:Arial,sans-serif;max-width:480px;margin:0 auto;background:#f4f2ff;padding:32px;border-radius:16px;">
+          <div style="text-align:center;margin-bottom:24px;">
+            <div style="background:#6D5DFC;display:inline-flex;padding:12px 20px;border-radius:12px;">
+              <span style="color:#FFB100;font-size:22px;font-weight:700;">⚡ Parola Bolt</span>
+            </div>
           </div>
-          <h1 style="color:#221A59;font-size:22px;margin:12px 0 4px;">Parola Bolt</h1>
-          <p style="color:#666;font-size:13px;margin:0;">Fast. Verified. Real.</p>
-        </div>
-
-        <div style="background:white;border-radius:12px;padding:24px;text-align:center;">
-          <h2 style="color:#221A59;margin:0 0 8px;">${purpose === 'forgot_password' ? 'Password Reset' : 'Your OTP Code'}</h2>
-          <p style="color:#555;font-size:14px;margin:0 0 20px;">
-            ${fullName ? `Hi ${fullName},` : 'Hi,'} use the code below.
-            It expires in <strong>5 minutes</strong>.
-          </p>
-
-          <div style="background:#F4F2FF;border-radius:12px;padding:20px;margin:16px 0;">
-            <span style="font-size:36px;font-weight:700;letter-spacing:12px;color:#6D5DFC;">${otp}</span>
+          <div style="background:white;border-radius:12px;padding:28px;text-align:center;">
+            <h2 style="color:#221A59;margin:0 0 8px;">
+              ${purpose === 'forgot_password' ? '🔐 Password Reset OTP' : '🔑 Login OTP'}
+            </h2>
+            <p style="color:#555;font-size:14px;margin:0 0 24px;">
+              ${fullName ? `Hi <b>${fullName}</b>,` : 'Hi,'} your one-time code is below.
+              Expires in <b>5 minutes</b>.
+            </p>
+            <div style="background:#F4F2FF;border-radius:12px;padding:20px 32px;margin:0 0 20px;display:inline-block;">
+              <span style="font-size:42px;font-weight:900;letter-spacing:16px;color:#6D5DFC;font-family:monospace;">${otp}</span>
+            </div>
+            <p style="color:#888;font-size:12px;">
+              🛡️ Never share this OTP. Parola Bolt will never ask for it.
+            </p>
           </div>
-
-          <p style="color:#999;font-size:12px;margin:16px 0 0;">
-            Never share this OTP with anyone. Parola Bolt staff will never ask for your OTP.
+          <p style="text-align:center;color:#aaa;font-size:11px;margin:20px 0 0;">
+            © ${new Date().getFullYear()} Parola Bolt · If you didn't request this, ignore this email.
           </p>
         </div>
+      `,
+    });
+  } catch (sendErr) {
+    // The real send failed (bad API key, Resend rejected the recipient/domain,
+    // etc). Log the actual reason and fall back so login doesn't hard-break,
+    // but this is now visible in server logs instead of failing silently.
+    console.error('\n❌ OTP email send FAILED:', sendErr.message);
+    console.log(`[FALLBACK OTP for ${to}]: ${otp}\n`);
+    return { simulated: true, otp, smtpError: sendErr.message };
+  }
 
-        <p style="text-align:center;color:#aaa;font-size:11px;margin:16px 0 0;">
-          © ${new Date().getFullYear()} Parola Bolt. If you didn't request this, ignore this email.
-        </p>
-      </div>
-    `,
-  });
-
+  console.log(`✅ OTP email sent to ${to}`);
   return { sent: true };
 };
 
-/**
- * Simulate SMS OTP (replace with Twilio when ready)
- */
+// ─── Send OTP SMS — auto-selects best available provider ─────────────────────
 const sendOtpSms = async ({ to, otp, purpose }) => {
-  console.log(`\n📱 [SMS OTP - SIMULATED]`);
-  console.log(`   To      : ${to}`);
-  console.log(`   OTP     : ${otp}`);
-  console.log(`   Purpose : ${purpose}`);
-  console.log(`   (Integrate Twilio in SMS_FALLBACK_MODE=live to send real SMS)\n`);
-  return { simulated: true };
+
+  // Priority 1: MSG91 (India — genuinely free trial, 100 SMS)
+  if (isMsg91Configured()) {
+    try {
+      return await sendMsg91Sms({ to, otp });
+    } catch (err) {
+      console.error('MSG91 failed, trying fallback:', err.message);
+    }
+  }
+
+  // Priority 2: Fast2SMS (India — needs ₹100 recharge for API)
+  if (isFast2SmsConfigured()) {
+    try {
+      return await sendFast2Sms({ to, otp });
+    } catch (err) {
+      console.error('Fast2SMS failed, trying fallback:', err.message);
+    }
+  }
+
+  // Priority 3: Twilio (International — paid for India)
+  if (isTwilioConfigured()) {
+    try {
+      return await sendTwilioSms({ to, otp });
+    } catch (err) {
+      console.error('Twilio failed:', err.message);
+    }
+  }
+
+  // Dev mode fallback — print OTP to console + return in API response
+  console.log('\n╔══════════════════════════════════════╗');
+  console.log('║     📱  OTP (Dev Mode - No SMS)      ║');
+  console.log('╠══════════════════════════════════════╣');
+  console.log(`║  To      : ${String(to).padEnd(27)}║`);
+  console.log(`║  OTP     : ${String(otp).padEnd(27)}║`);
+  console.log(`║  Purpose : ${String(purpose).padEnd(27)}║`);
+  console.log('╚══════════════════════════════════════╝\n');
+  return { simulated: true, otp };
 };
 
-module.exports = { generateOtp, sendOtpEmail, sendOtpSms };
+// ─── MSG91 (India — best free option) ────────────────────────────────────────
+const sendMsg91Sms = ({ to, otp }) => {
+  return new Promise((resolve, reject) => {
+    // Strip to 10-digit Indian number
+    const mobile = String(to).replace(/\D/g, '').slice(-10);
+    const senderId = process.env.MSG91_SENDER_ID || 'OTPSMS';
+
+    const postData = JSON.stringify({
+      sender: senderId,
+      route: '4',          // Transactional route
+      country: '91',
+      sms: [
+        {
+          message: `Your Parola Bolt OTP is ${otp}. Valid for 5 minutes. Do NOT share with anyone. -Parola Bolt`,
+          to: [mobile],
+        },
+      ],
+    });
+
+    const options = {
+      hostname: 'api.msg91.com',
+      path: '/api/v2/sendsms',
+      method: 'POST',
+      headers: {
+        authkey: process.env.MSG91_API_KEY,
+        'Content-Type': 'application/json',
+        'Content-Length': Buffer.byteLength(postData),
+      },
+    };
+
+    const req = https.request(options, (res) => {
+      let data = '';
+      res.on('data', (chunk) => { data += chunk; });
+      res.on('end', () => {
+        try {
+          const parsed = JSON.parse(data);
+          if (parsed.type === 'success') {
+            console.log(`✅ MSG91 OTP SMS sent to ${to}`);
+            resolve({ sent: true });
+          } else {
+            console.error('❌ MSG91 error:', JSON.stringify(parsed));
+            reject(new Error(parsed.message || 'MSG91 send failed'));
+          }
+        } catch (e) {
+          console.error('MSG91 raw response:', data);
+          reject(new Error('MSG91 response parse error'));
+        }
+      });
+    });
+
+    req.on('error', reject);
+    req.write(postData);
+    req.end();
+  });
+};
+
+// ─── Fast2SMS ─────────────────────────────────────────────────────────────────
+const sendFast2Sms = ({ to, otp }) => {
+  return new Promise((resolve, reject) => {
+    const mobile = String(to).replace(/\D/g, '').slice(-10);
+    const message = `Your Parola Bolt OTP is: ${otp}. Valid for 5 minutes. Do not share with anyone.`;
+    const postData = JSON.stringify({
+      route: 'q',
+      message,
+      language: 'english',
+      flash: 0,
+      numbers: mobile,
+    });
+
+    const options = {
+      hostname: 'www.fast2sms.com',
+      path: '/dev/bulkV2',
+      method: 'POST',
+      headers: {
+        authorization: process.env.FAST2SMS_API_KEY,
+        'Content-Type': 'application/json',
+        'Content-Length': Buffer.byteLength(postData),
+      },
+    };
+
+    const req = https.request(options, (res) => {
+      let data = '';
+      res.on('data', (chunk) => { data += chunk; });
+      res.on('end', () => {
+        try {
+          const parsed = JSON.parse(data);
+          if (parsed.return === true) {
+            console.log(`✅ Fast2SMS OTP sent to ${to}`);
+            resolve({ sent: true });
+          } else {
+            reject(new Error(parsed.message?.[0] || 'Fast2SMS send failed'));
+          }
+        } catch (e) {
+          reject(new Error('Fast2SMS response parse error'));
+        }
+      });
+    });
+
+    req.on('error', reject);
+    req.write(postData);
+    req.end();
+  });
+};
+
+// ─── Twilio ───────────────────────────────────────────────────────────────────
+const sendTwilioSms = async ({ to, otp }) => {
+  const twilio = require('twilio');
+  const client = twilio(process.env.TWILIO_SID, process.env.TWILIO_AUTH_TOKEN);
+  await client.messages.create({
+    body: `Your Parola Bolt OTP is: ${otp}. Valid for 5 minutes. Never share this code.`,
+    from: process.env.SMS_FROM_NUMBER,
+    to: String(to),
+  });
+  console.log(`✅ Twilio OTP SMS sent to ${to}`);
+  return { sent: true };
+};
+
+module.exports = { generateOtp, sendOtpEmail, sendOtpSms, isResendConfigured };
