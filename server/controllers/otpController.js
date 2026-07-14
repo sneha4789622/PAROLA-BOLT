@@ -71,6 +71,12 @@ const findUserByIdentifier = (identifier, identifierType) => {
 // POST /api/auth/otp/send
 // ─────────────────────────────────────────────────────────────────────────────
 const sendLoginOtp = async (req, res, next) => {
+  
+    console.log("Controller reached");
+
+    console.log(req.body);
+
+
   try {
     const { identifier, identifierType = 'email' } = req.body;
     if (!identifier || !String(identifier).trim()) {

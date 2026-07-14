@@ -26,24 +26,28 @@ const createApp = (io) => {
 
   app.use(helmet());
   app.use(mongoSanitize());
- const allowedOrigins = [
-  "http://localhost:5173",
-  "https://parola-project.vercel.app",
-];
+//  const allowedOrigins = [
+//   "http://localhost:5173",
+//   "https://parola-project.vercel.app",
+// ];
 
-app.use(cors({
-  origin(origin, callback) {
-    if (
-      !origin ||
-      allowedOrigins.includes(origin) ||
-      /\.vercel\.app$/.test(new URL(origin).hostname)
-    ) {
-      return callback(null, true);
-    }
-    return callback(new Error("Origin not allowed by CORS"));
-  },
-  credentials: true,
-}));
+// app.use(cors({
+//   origin(origin, callback) {
+//     if (
+//       !origin ||
+//       allowedOrigins.includes(origin) ||
+//       /\.vercel\.app$/.test(new URL(origin).hostname)
+//     ) {
+//       return callback(null, true);
+//     }
+//     return callback(new Error("Origin not allowed by CORS"));
+//   },
+//   credentials: true,
+// }));
+ app.use(cors({
+    origin: process.env.CLIENT_URL || 'http://localhost:5173',
+    credentials: true,
+  }));
   app.use(express.json({ limit: '10mb' }));
   app.use(express.urlencoded({ extended: true }));
   app.use(cookieParser());

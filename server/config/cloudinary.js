@@ -8,8 +8,10 @@ cloudinary.config({
   api_secret: process.env.CLOUDINARY_API_SECRET,
 });
 
+
 // Generic storage for posts/reels/profile media
 const storage = new CloudinaryStorage({
+  
   cloudinary,
   params: async (req, file) => {
     // Cloudinary has no separate "audio" resource_type — audio files
