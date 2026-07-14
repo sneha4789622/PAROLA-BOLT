@@ -26,26 +26,22 @@ const createApp = (io) => {
 
   app.use(helmet());
   app.use(mongoSanitize());
-//  const allowedOrigins = [
-//   "http://localhost:5173",
-//   "https://parola-project.vercel.app",
-// ];
+  const allowedOrigins = [
+    'http://localhost:5173',
+    'https://parola-project.vercel.app',
+  ];
 
-// app.use(cors({
-//   origin(origin, callback) {
-//     if (
-//       !origin ||
-//       allowedOrigins.includes(origin) ||
-//       /\.vercel\.app$/.test(new URL(origin).hostname)
-//     ) {
-//       return callback(null, true);
-//     }
-//     return callback(new Error("Origin not allowed by CORS"));
-//   },
-//   credentials: true,
-// }));
- app.use(cors({
-    origin: process.env.CLIENT_URL || 'http://localhost:5173',
+  app.use(cors({
+    origin(origin, callback) {
+      if (
+        !origin ||
+        allowedOrigins.includes(origin) ||
+        /\.vercel\.app$/.test(new URL(origin).hostname)
+      ) {
+        return callback(null, true);
+      }
+      return callback(new Error('Origin not allowed by CORS'));
+    },
     credentials: true,
   }));
   app.use(express.json({ limit: '10mb' }));
@@ -54,7 +50,6 @@ const createApp = (io) => {
 
   if (process.env.NODE_ENV === 'development') app.use(morgan('dev'));
 
-  // Attach Socket.IO to every request
   app.use((req, res, next) => { req.io = io; next(); });
 
   app.use('/api', apiLimiter);
@@ -63,7 +58,6 @@ const createApp = (io) => {
     res.status(200).json({ success: true, message: 'Parola Bolt API is running.', timestamp: new Date() })
   );
 
-  // Existing routes (unchanged)
   app.use('/api/auth', authRoutes);
   app.use('/api/users', userRoutes);
   app.use('/api/posts', postRoutes);
@@ -73,7 +67,6 @@ const createApp = (io) => {
   app.use('/api/search', searchRoutes);
   app.use('/api/admin', adminRoutes);
 
-  // New routes
   app.use('/api/auth/otp', otpRoutes);
   app.use('/api/settings', settingsRoutes);
   app.use('/api/support', supportRoutes);
